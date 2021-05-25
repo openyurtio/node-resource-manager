@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-resource-topo
+  namespace: kube-system
+data:
+  volumegroup: |-
+    volumegroup:
+    - name: volumegroup1
+      key: kubernetes.io/hostname
+      operator: In
+      value: cn-zhangjiakou.192.168.3.114
+      topology:
+        type: device
+        devices:
+        - /dev/vdb
+        - /dev/vdc
+
+    - name: volumegroup1
+      key: kubernetes.io/hostname
+      operator: In
+      value: cn-beijing.192.168.3.35
+      topology:
+        type: pmem
+        regions:
+        - region0
+
+  quotapath: |-
+    quotapath:
+    - name: /mnt/path1
+      key: kubernetes.io/hostname
+      operator: In
+      value: cn-beijing.192.168.3.35
+      topology:
+        type: device
+        options: prjquota
+        fstype: ext4
+        devices:
+        - /dev/vdb
+
+    - name: /mnt/path2
+      key: kubernetes.io/hostname
+      operator: In
+      value: cn-beijing.192.168.3.36
+      topology:
+        type: pmem
+        options: prjquota,shared
+        fstype: ext4
+        regions: 
+        - region0
+
+  memory: |-
+    memory:
+    - name: test1
+      key: kubernetes.io/hostname
+      operator: In
+      value: cn-beijing.192.168.3.37
+      topology:
+        type: pmem
+        regions: 
+        - region0
