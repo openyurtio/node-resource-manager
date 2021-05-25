@@ -1,0 +1,3 @@
+version: "1"
+domain: openyurt.io
+repo: github.com/openyurtio/node-resource-manager
