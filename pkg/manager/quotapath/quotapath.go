@@ -1,0 +1,175 @@
+/*
+Copyright 2021 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package quotapath
+
+import (
+	"io/ioutil"
+	"os"
+	"strings"
+
+	"github.com/openyurtio/node-resource-manager/pkg/config"
+	"github.com/openyurtio/node-resource-manager/pkg/utils"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+)
+
+// ResourceManager ...
+type ResourceManager struct {
+	DeviceQuotaPath map[string]*QpConfig
+	RegionQuotaPath map[string]*QpConfig
+	mounter         utils.Mounter
+	mkfsOption      []string
+	pmemer          utils.Pmemer
+	configPath      string
+}
+
+// NewResourceManager ...
+func NewResourceManager() *ResourceManager {
+	return &ResourceManager{
+		DeviceQuotaPath: make(map[string]*QpConfig),
+		RegionQuotaPath: make(map[string]*QpConfig),
+		mounter:         utils.NewMounter(),
+		pmemer:          utils.NewNodePmemer(),
+		configPath:      "/etc/unified-config/quotapath",
+	}
+}
+
+// AnalyseConfigMap analyse quotapath resource config
+func (qrm *ResourceManager) AnalyseConfigMap() error {
+	deviceQuotaConfig := map[string]*QpConfig{}
+	regionQuotaConfig := map[string]*QpConfig{}
+	quotaPathList := &QPList{}
+	yamlFile, err := ioutil.ReadFile(qrm.configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Debugf("quota config file %s not exist", qrm.configPath)
+			return nil
+		}
+		log.Errorf("AnalyseConfigMap:: yamlFile.Get error %v", err)
+		return err
+	}
+	err = yaml.Unmarshal(yamlFile, quotaPathList)
+	if err != nil {
+		log.Errorf("AnalyseConfigMap:: parse yaml file error: %v", err)
+		return err
+	}
+	mountPathMap := map[string]string{}
+	nodeInfo := config.GlobalConfigVar.NodeInfo
+	for _, quotaConfig := range quotaPathList.QuotaPaths {
+		isMatched := utils.NodeFilter(quotaConfig.Operator, quotaConfig.Key, quotaConfig.Value, nodeInfo)
+		if isMatched {
+			if _, ok := mountPathMap[quotaConfig.Name]; ok {
+				log.Errorf("AnalyseConfigMap:: quotapath config has multi mount path config [%s] on same node", quotaConfig.Name)
+				continue
+			}
+			switch quotaConfig.Topology.Type {
+			case "device":
+				conf := &QpConfig{}
+				if len(quotaConfig.Topology.Devices) != 1 {
+					log.Errorf("AnalyseConfigMap:: quotapath regions [%v] config only support one device", quotaConfig.Topology.Regions)
+					continue
+				}
+				conf.Device = quotaConfig.Topology.Devices[0]
+				conf.Fstype = quotaConfig.Topology.Fstype
+				conf.Options = quotaConfig.Topology.Options
+				conf.Type = quotaConfig.Topology.Type
+				deviceQuotaConfig[quotaConfig.Name] = conf
+			case "pmem":
+				conf := &QpConfig{}
+				if len(quotaConfig.Topology.Regions) != 1 {
+					log.Errorf("AnalyseConfigMap:: quotapath regions [%s] config only support one device", quotaConfig.Topology.Regions)
+					continue
+				}
+				conf.Region = quotaConfig.Topology.Regions[0]
+				conf.Fstype = quotaConfig.Topology.Fstype
+				conf.Options = quotaConfig.Topology.Options
+				conf.Type = quotaConfig.Topology.Type
+				regionQuotaConfig[quotaConfig.Name] = conf
+			default:
+				log.Errorf("AnalyseConfigMap:: not support quotapath config type: [%v]", quotaConfig.Topology.Type)
+				continue
+			}
+			mountPathMap[quotaConfig.Name] = ""
+		}
+	}
+
+	qrm.DeviceQuotaPath = deviceQuotaConfig
+	qrm.RegionQuotaPath = regionQuotaConfig
+	return nil
+}
+
+// ApplyResourceDiff apply quotapath resource to current node
+func (qrm *ResourceManager) ApplyResourceDiff() error {
+	log.Infof("ApplyResourceDiff: matched node resources qrm.DeviceQuotaPath: %v, qrm.RegionQuotaPath: %v", qrm.DeviceQuotaPath, qrm.RegionQuotaPath)
+	qrm.mkfsOption = strings.Split("-O project,quota", " ")
+	err := qrm.applyDeivceQuotaPath()
+	if err != nil {
+		log.Errorf("ApplyResourceDiff:: apply deivce quotapath error: %v", err)
+	}
+	err = qrm.applyRegionQuotaPath()
+	if err != nil {
+		log.Errorf("ApplyResourceDiff:: apply region quotapath error: %v", err)
+	}
+	return err
+}
+
+func (qrm *ResourceManager) applyDeivceQuotaPath() error {
+
+	for mountPath, deivceQuotaPathConfig := range qrm.DeviceQuotaPath {
+		err := qrm.mounter.EnsureFolder(mountPath)
+		if err != nil {
+			log.Errorf("applyDeivceQuotaPath:: ensure quotapath error: %v", err)
+			continue
+		}
+		err = qrm.mounter.FormatAndMount(deivceQuotaPathConfig.Device, mountPath, deivceQuotaPathConfig.Fstype, qrm.mkfsOption, deivceQuotaPathConfig.Options)
+		if err != nil {
+			log.Errorf("applyDeivceQuotaPath:: mounter FormatAndMount error: %v", err)
+			continue
+		}
+	}
+	return nil
+}
+
+func (qrm *ResourceManager) applyRegionQuotaPath() error {
+	for mountPath, regionQuotaPathConfig := range qrm.RegionQuotaPath {
+		devicePath, _, err := qrm.pmemer.GetPmemNamespaceDeivcePath(regionQuotaPathConfig.Region, "fsdax")
+		if err != nil {
+			if strings.Contains(err.Error(), "list Namespace for region get 0 or multi namespaces") {
+				err := qrm.pmemer.CreateNamespace(regionQuotaPathConfig.Region, "lvm")
+				if err != nil {
+					log.Errorf("applyRegionQuotaPath:: create namespace for region [%s], error: %v", regionQuotaPathConfig.Region, err)
+					continue
+				}
+				devicePath, _, err = qrm.pmemer.GetPmemNamespaceDeivcePath(regionQuotaPathConfig.Region, "fsdax")
+			} else {
+				log.Errorf("applyRegionQuotaPath:: get region [%s] namespace device path error: %v", regionQuotaPathConfig.Region, err)
+				continue
+			}
+		}
+		err = qrm.mounter.EnsureFolder(mountPath)
+		if err != nil {
+			log.Errorf("applyRegionQuotaPath:: ensure quotapath error: %v", err)
+			continue
+		}
+		err = qrm.mounter.FormatAndMount(devicePath, mountPath, regionQuotaPathConfig.Fstype, qrm.mkfsOption, regionQuotaPathConfig.Options)
+		if err != nil {
+			log.Errorf("applyRegionQuotaPath:: mounter FormatAndMount error: %v", err)
+			continue
+		}
+	}
+	return nil
+}

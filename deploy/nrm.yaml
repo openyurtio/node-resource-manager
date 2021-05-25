@@ -1,0 +1,92 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-resource-manager
+  namespace: kube-system
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: node-resource-manager
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "watch", "list", "delete", "update", "create"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: node-resource-manager-binding
+subjects:
+  - kind: ServiceAccount
+    name: node-resource-manager
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: node-resource-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: node-resource-manager
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: node-resource-manager
+  template:
+    metadata:
+      labels:
+        app: node-resource-manager
+    spec:
+      tolerations:
+        - operator: "Exists"
+      priorityClassName: system-node-critical
+      serviceAccountName: node-resource-manager
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: node-resource-manager
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
+            allowPrivilegeEscalation: true
+          image: openyurt/node-resource-manager:v1.0
+          imagePullPolicy: "Always"
+          args:
+            - "--nodeid=$(KUBE_NODE_NAME)"
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - mountPath: /dev
+              mountPropagation: "HostToContainer"
+              name: host-dev
+            - mountPath: /var/log/
+              name: host-log
+            - name: etc
+              mountPath: /host/etc
+            - name: config
+              mountPath: /etc/unified-config
+      volumes:
+        - name: host-dev
+          hostPath:
+            path: /dev
+        - name: host-log
+          hostPath:
+            path: /var/log/
+        - name: etc
+          hostPath:
+            path: /etc
+        - name: config
+          configMap:
+            name: node-resource-topo
