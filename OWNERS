@@ -1,0 +1,15 @@
+# See: https://go.k8s.io/owners
+approvers:
+  - mowangdk
+  - fredkan
+  - wenjun93
+  - Fei-Guo
+  - rambohe-ch
+reviewers:
+  - mowangdk
+  - fredkan
+  - wenjun93
+  - Fei-Guo
+  - huangyuqi
+  - rambohe-ch
+  - kadisi
