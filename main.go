@@ -60,7 +60,7 @@ func main() {
 
 	// set log config
 	setLogAttribute("unified-resource-manager")
-	log.Infof("Unified Resource Manager, Version: %s, Build Time: %s", _VERSION_, _BUILDTIME_)
+	log.Infof("Unified Resource Manager, BuildBranch: %s Version: %s, Build Time: %s", _BRANCH_, _VERSION_, _BUILDTIME_)
 
 	// new signal handler
 	stopCh := signals.SetupSignalHandler()

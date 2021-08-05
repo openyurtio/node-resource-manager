@@ -26,9 +26,12 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/openyurtio/node-resource-manager/pkg/config"
+	CusErr "github.com/openyurtio/node-resource-manager/pkg/err"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 const (
@@ -48,9 +51,11 @@ const (
 type ResourceManager struct {
 	volumeGroupDeviceMap map[string]*VgDeviceConfig
 	volumeGroupRegionMap map[string][]string
+	mounter              utils.Mounter
 	pmemer               utils.Pmemer
 	lvmer                utils.LVM
 	configPath           string
+	recorder             record.EventRecorder
 }
 
 // NewResourceManager ...
@@ -59,8 +64,10 @@ func NewResourceManager() *ResourceManager {
 		volumeGroupDeviceMap: make(map[string]*VgDeviceConfig),
 		volumeGroupRegionMap: make(map[string][]string),
 		pmemer:               utils.NewNodePmemer(),
+		mounter:              utils.NewMounter(),
 		lvmer:                utils.NewNodeLVM(),
 		configPath:           "/etc/unified-config/volumegroup",
+		recorder:             utils.NewEventRecorder(),
 	}
 }
 
@@ -130,7 +137,7 @@ func difference(a, b []string) []string {
 	return diff
 }
 
-func getPvListForLocalDisk() []string {
+func getPvListForLocalDisk(mounter utils.Mounter) []string {
 	// Step 2: Get LocalDisk Number
 	localDeviceList := []string{}
 	localDeviceNum, err := getLocalDeviceNum()
@@ -157,12 +164,22 @@ func getPvListForLocalDisk() []string {
 		}
 		deviceNamePrefix = deviceStartWith[0 : deviceNameLen-1]
 	}
-	for i := deviceStartIndex; i < localDeviceNum; i++ {
-		deviceName := deviceNamePrefix + DeviceChars[i]
-		devicePath := filepath.Join("/dev", deviceName)
-		localDeviceList = append(localDeviceList, devicePath)
+	if mounter.FileExists(deviceNamePrefix + DeviceChars[deviceStartIndex]) {
+		for i := deviceStartIndex; i < localDeviceNum; i++ {
+			deviceName := deviceNamePrefix + DeviceChars[i]
+			devicePath := filepath.Join("/dev", deviceName)
+			localDeviceList = append(localDeviceList, devicePath)
+		}
 	}
-	//log.Infof("doLocalVolumeMounts, Starting LocalDisk Mount: LocalDisk Number: %d, LocalDisk: %v", localDeviceNum, localDeviceList)
+	//	nvmeDevicePattern := "nvme%vn1"
+	//	nvmeStartIndex := 0
+	//	if mounter.FileExists(fmt.Sprintf(nvmeDevicePattern, nvmeStartIndex)) {
+	//		for i :=nvmeStartIndex; i < localDeviceNum; i++ {
+	//			devicePath := filepath.Join("/dev", fmt.Sprintf(nvmeDevicePattern, i))
+	//			localDeviceList = append(localDeviceList, devicePath)
+	//		}
+	//	}
+	log.Infof("getPvListForLocalDisk:: Starting LocalDisk Mount: LocalDisk Number: %d, LocalDisk: %v", localDeviceNum, localDeviceList)
 	return localDeviceList
 }
 
@@ -173,7 +190,7 @@ func getLocalDeviceNum() (int, error) {
 	regionID := GetMetaData(RegionIDTag)
 	localDeviceNum := 0
 	akID, akSecret, token := GetDefaultAK()
-	client := NewEcsClient(akID, akSecret, token)
+	client := NewEcsClient(regionID, akID, akSecret, token)
 
 	// Get Instance Type
 	request := ecs.CreateDescribeInstancesRequest()
@@ -241,6 +258,22 @@ func (vrm *ResourceManager) getRealVgList() ([]*VgDeviceConfig, error) {
 
 // AnalyseConfigMap analyse pmem resource config
 func (vrm *ResourceManager) AnalyseConfigMap() error {
+	ref := &v1.ObjectReference{
+		Kind:      "pods",
+		Name:      os.Getenv("POD_NAME"),
+		Namespace: "kube-system",
+	}
+	getExistDevices := func(storages []string) (exists []string) {
+		for _, device := range storages {
+			cerr := &CusErr.DeviceNotExistsErr{Device: device}
+			if !vrm.mounter.FileExists(device) {
+				vrm.recorder.Event(ref, v1.EventTypeNormal, "DeviceNotExists", cerr.Error())
+			} else {
+				exists = append(exists, device)
+			}
+		}
+		return
+	}
 
 	vgDeviceMap := map[string]*VgDeviceConfig{}
 	vgRegionMap := map[string][]string{}
@@ -272,17 +305,17 @@ func (vrm *ResourceManager) AnalyseConfigMap() error {
 		if isMatched {
 			switch devConfig.Topology.Type {
 			case VgTypeDevice:
-				vgDeviceConfig.PhysicalVolumes = devConfig.Topology.Devices
+				vgDeviceConfig.PhysicalVolumes = getExistDevices(devConfig.Topology.Devices)
 				vgDeviceMap[devConfig.Name] = vgDeviceConfig
 			case VgTypeLocal:
 				tmpConfig := &VgDeviceConfig{}
-				tmpConfig.PhysicalVolumes = getPvListForLocalDisk()
+				tmpConfig.PhysicalVolumes = getPvListForLocalDisk(vrm.mounter)
 				vgDeviceMap[devConfig.Name] = tmpConfig
 			case VgTypePvc:
 				// not support yet
 				continue
 			case VgTypePmem:
-				vgRegionMap[devConfig.Name] = devConfig.Topology.Regions
+				vgRegionMap[devConfig.Name] = getExistDevices(devConfig.Topology.Regions)
 			default:
 				log.Errorf("AnalyseConfigMap:: Get unsupported volumegroup type: %s", devConfig.Topology.Type)
 				continue

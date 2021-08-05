@@ -22,27 +22,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
 	log "github.com/sirupsen/logrus"
 )
-
-func newEcsClient(accessKeyID, accessKeySecret, accessToken string) (ecsClient *ecs.Client) {
-	var err error
-	regionID, _ := utils.GetMetaData(RegionIDTag)
-	if accessToken == "" {
-		ecsClient, err = ecs.NewClientWithAccessKey(regionID, accessKeyID, accessKeySecret)
-		if err != nil {
-			return nil
-		}
-	} else {
-		ecsClient, err = ecs.NewClientWithStsToken(regionID, accessKeyID, accessKeySecret, accessToken)
-		if err != nil {
-			return nil
-		}
-	}
-	return
-}
 
 // GetDefaultAK read default ak from local file or from STS
 func GetDefaultAK() (string, string, string) {

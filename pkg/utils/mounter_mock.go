@@ -49,6 +49,20 @@ func (m *MockMounter) EXPECT() *MockMounterMockRecorder {
 	return m.recorder
 }
 
+// FileExists ...
+func (m *MockMounter) FileExists(filename string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FileExists", filename)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// EnsureFolder ...
+func (mr MockMounterMockRecorder) FileExists(filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FileExists", reflect.TypeOf((*MockMounter)(nil).FileExists), filename)
+}
+
 // EnsureFolder ...
 func (m *MockMounter) EnsureFolder(target string) error {
 	m.ctrl.T.Helper()
