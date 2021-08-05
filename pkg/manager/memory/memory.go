@@ -24,6 +24,7 @@ import (
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	"k8s.io/client-go/tools/record"
 )
 
 // ResourceManager ...
@@ -31,6 +32,7 @@ type ResourceManager struct {
 	Memory     []*MConfig
 	pmem       utils.Pmemer
 	configPath string
+	recorder   record.EventRecorder
 }
 
 // NewResourceManager ...
@@ -39,6 +41,7 @@ func NewResourceManager() *ResourceManager {
 		Memory:     []*MConfig{},
 		pmem:       utils.NewNodePmemer(),
 		configPath: "/etc/unified-config/memory",
+		recorder:   utils.NewEventRecorder(),
 	}
 }
 

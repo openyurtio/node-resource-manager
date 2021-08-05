@@ -26,7 +26,7 @@ type QpConfig struct {
 	Options string
 	Fstype  string
 	Region  string
-	Device  string
+	Devices []string
 }
 
 // QPList ...

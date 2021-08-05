@@ -17,14 +17,18 @@ limitations under the License.
 package quotapath
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/openyurtio/node-resource-manager/pkg/config"
+	CusErr "github.com/openyurtio/node-resource-manager/pkg/err"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 // ResourceManager ...
@@ -35,6 +39,7 @@ type ResourceManager struct {
 	mkfsOption      []string
 	pmemer          utils.Pmemer
 	configPath      string
+	recorder        record.EventRecorder
 }
 
 // NewResourceManager ...
@@ -45,6 +50,7 @@ func NewResourceManager() *ResourceManager {
 		mounter:         utils.NewMounter(),
 		pmemer:          utils.NewNodePmemer(),
 		configPath:      "/etc/unified-config/quotapath",
+		recorder:        utils.NewEventRecorder(),
 	}
 }
 
@@ -79,11 +85,7 @@ func (qrm *ResourceManager) AnalyseConfigMap() error {
 			switch quotaConfig.Topology.Type {
 			case "device":
 				conf := &QpConfig{}
-				if len(quotaConfig.Topology.Devices) != 1 {
-					log.Errorf("AnalyseConfigMap:: quotapath regions [%v] config only support one device", quotaConfig.Topology.Regions)
-					continue
-				}
-				conf.Device = quotaConfig.Topology.Devices[0]
+				conf.Devices = quotaConfig.Topology.Devices
 				conf.Fstype = quotaConfig.Topology.Fstype
 				conf.Options = quotaConfig.Topology.Options
 				conf.Type = quotaConfig.Topology.Type
@@ -129,16 +131,32 @@ func (qrm *ResourceManager) ApplyResourceDiff() error {
 
 func (qrm *ResourceManager) applyDeivceQuotaPath() error {
 
+	ref := &v1.ObjectReference{
+		Kind:      "pods",
+		Name:      os.Getenv("POD_NAME"),
+		Namespace: "kube-system",
+	}
 	for mountPath, deivceQuotaPathConfig := range qrm.DeviceQuotaPath {
 		err := qrm.mounter.EnsureFolder(mountPath)
 		if err != nil {
 			log.Errorf("applyDeivceQuotaPath:: ensure quotapath error: %v", err)
 			continue
 		}
-		err = qrm.mounter.FormatAndMount(deivceQuotaPathConfig.Device, mountPath, deivceQuotaPathConfig.Fstype, qrm.mkfsOption, deivceQuotaPathConfig.Options)
-		if err != nil {
-			log.Errorf("applyDeivceQuotaPath:: mounter FormatAndMount error: %v", err)
-			continue
+		log.Infof("applyDeivceQuotaPath:: device quotapath config devices: %v", deivceQuotaPathConfig.Devices)
+		for _, device := range deivceQuotaPathConfig.Devices {
+			if !qrm.mounter.FileExists(device) {
+				log.Warnf("applyDeivceQuotaPath:: device %v not exists", device)
+				continue
+			}
+			err = qrm.mounter.FormatAndMount(device, mountPath, deivceQuotaPathConfig.Fstype, qrm.mkfsOption, deivceQuotaPathConfig.Options)
+			if err != nil {
+				if errors.Is(err, &CusErr.ExistsFormatErr{}) {
+					qrm.recorder.Event(ref, v1.EventTypeWarning, "ExistsFormatErr", err.Error())
+				}
+				log.Errorf("applyDeivceQuotaPath:: device: %v, mounter FormatAndMount error: %v", device, err)
+				continue
+			}
+			break
 		}
 	}
 	return nil

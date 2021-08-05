@@ -33,6 +33,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 func makeValidResourceYaml() *model.ResourceYaml {
@@ -72,12 +73,17 @@ func EnsureVolumeGroupEnv() (string, error, *ResourceManager) {
 }
 
 func TestAnalyseConfigMap(t *testing.T) {
+	mockCtl := gomock.NewController(t)
+	defer mockCtl.Finish()
 	// set test node info
 	configPath, err, resourceManager := EnsureVolumeGroupEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(configPath)
+	mockMounter := utils.NewMockMounter(mockCtl)
+	resourceManager.mounter = mockMounter
+	resourceManager.recorder = record.NewFakeRecorder(10)
 	setOpInOperatorElement := func(m *model.ResourceYaml) {
 		m.Key = "bar"
 		m.Operator = metav1.LabelSelectorOpIn
@@ -127,9 +133,18 @@ func TestAnalyseConfigMap(t *testing.T) {
 	}
 	ioutil.WriteFile(configPath, d, 0777)
 
+	gomock.InOrder(
+		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdb")).Return(true),
+		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdc")).Return(false),
+		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdb")).Return(false),
+		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdc")).Return(true),
+	)
+
 	assert.Nil(t, resourceManager.AnalyseConfigMap())
 	assert.Equal(t, 1, len(resourceManager.volumeGroupDeviceMap))
 	assert.Equal(t, 1, len(resourceManager.volumeGroupRegionMap))
+	assert.Equal(t, 1, len(resourceManager.volumeGroupDeviceMap["foo"].PhysicalVolumes))
+	assert.Equal(t, "/dev/vdc", resourceManager.volumeGroupRegionMap["bar1"][0])
 }
 
 // EnsureFolder ...
@@ -164,6 +179,9 @@ func TestAnalyseDiff(t *testing.T) {
 	resourceManager.pmemer = mockPmemer
 	mockLVM := utils.NewMockLVM(mockCtl)
 	resourceManager.lvmer = mockLVM
+	mockMounter := utils.NewMockMounter(mockCtl)
+	resourceManager.mounter = mockMounter
+	resourceManager.recorder = record.NewFakeRecorder(10)
 	setOpInOperatorElement := func(m *model.ResourceYaml) {
 		m.Key = "bar"
 		m.Operator = metav1.LabelSelectorOpIn
@@ -191,6 +209,10 @@ func TestAnalyseDiff(t *testing.T) {
 		t.Fatal(err)
 	}
 	prListStr := strings.Join([]string{"/dev/vdb", "/dev/vdc"}, " ")
+	gomock.InOrder(
+		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdb")).Return(true),
+		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdc")).Return(true),
+	)
 	assert.Nil(t, resourceManager.AnalyseConfigMap())
 	gomock.InOrder(
 		mockLVM.EXPECT().ListPhysicalVolume().Return([]*model.PV{}, nil),

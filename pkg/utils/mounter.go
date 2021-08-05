@@ -27,6 +27,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	utilexec "k8s.io/utils/exec"
 	k8smount "k8s.io/utils/mount"
+
+	CusErr "github.com/openyurtio/node-resource-manager/pkg/err"
 )
 
 const (
@@ -62,6 +64,8 @@ type Mounter interface {
 	IsMounted(target string) (bool, error)
 
 	SafePathRemove(target string) error
+
+	FileExists(file string) bool
 }
 
 // TODO(arslan): this is Linux only for now. Refactor this into a package with
@@ -81,6 +85,18 @@ func NewMounter() Mounter {
 		},
 		utilexec.New(),
 	}
+}
+
+// FileExists ...
+func (m *NodeMounter) FileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
 
 // EnsureFolder ...
@@ -188,7 +204,11 @@ func (m *NodeMounter) FormatAndMount(source, target, fstype string, mkfsOptions 
 			return mountErr
 		}
 		// Block device is formatted with unexpected filesystem, let the user know
-		return fmt.Errorf("failed to mount the volume as %q, it already contains %s. Mount error: %v", fstype, existingFormat, mountErr)
+		return &CusErr.ExistsFormatErr{
+			FsType:         fstype,
+			ExistingFormat: existingFormat,
+			MountErr:       mountErr,
+		}
 	}
 
 	return mountErr
