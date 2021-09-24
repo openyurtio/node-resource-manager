@@ -186,7 +186,7 @@ func IsPart(largeList, smallList []string) bool {
 func NewEventRecorder() record.EventRecorder {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal("NewEventRecorder:: Failed to create cluster config: %v", err)
+		log.Fatalf("NewEventRecorder:: Failed to create cluster config: %v", err)
 	}
 	clientset := kubernetes.NewForConfigOrDie(config)
 	broadcaster := record.NewBroadcaster()

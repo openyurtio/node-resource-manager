@@ -173,6 +173,10 @@ func (qrm *ResourceManager) applyRegionQuotaPath() error {
 					continue
 				}
 				devicePath, _, err = qrm.pmemer.GetPmemNamespaceDeivcePath(regionQuotaPathConfig.Region, "fsdax")
+				if err != nil {
+					log.Errorf("applyRegionQuotaPath:: get namespace device path for region [%s], error: %v", regionQuotaPathConfig.Region, err)
+					continue
+				}
 			} else {
 				log.Errorf("applyRegionQuotaPath:: get region [%s] namespace device path error: %v", regionQuotaPathConfig.Region, err)
 				continue

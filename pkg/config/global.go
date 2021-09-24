@@ -60,7 +60,7 @@ func GlobalConfigSet(nodeID, masterURL, kubeconfig string) {
 
 	node, err := kubeClient.CoreV1().Nodes().Get(context.Background(), nodeID, metav1.GetOptions{})
 	if err != nil {
-		log.Fatal("Error get current node info: %s", err.Error())
+		log.Fatalf("Error get current node info: %s", err.Error())
 	}
 
 	// Global Config Set

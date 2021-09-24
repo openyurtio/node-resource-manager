@@ -132,6 +132,10 @@ func (np *NodePmemer) getRegionNamespaceInfo(region string) (*model.PmemRegions,
 	}
 	regions := &model.PmemRegions{}
 	err = json.Unmarshal(([]byte)(out), regions)
+	if err != nil {
+		log.Errorf("getRegionNamespaceInfo:: unmarshal regions err: %v", err)
+		return nil, err
+	}
 	if len(regions.Regions) == 0 {
 		log.Errorf("list Namespace for region %s get 0 region, out: %s", region, out)
 		return nil, errors.New("list Namespace get 0 region by " + region)
