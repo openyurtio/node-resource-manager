@@ -112,7 +112,7 @@ func TestAnalyseDiff(t *testing.T) {
 			Type:    "device",
 			Options: "prjquota",
 			Fstype:  "ext4",
-			Devices: []string{"/dev/vdc"},
+			Devices: []string{"/dev/vdc", "/dev/vdd"},
 		}
 	}
 	setDeviceNameElement := func(m *model.ResourceYaml) {
@@ -138,6 +138,8 @@ func TestAnalyseDiff(t *testing.T) {
 	gomock.InOrder(
 		mockMounter.EXPECT().EnsureFolder(
 			gomock.Eq("/tmp/foo1")).Return(nil),
+		mockMounter.EXPECT().FileExists(
+			gomock.Eq("/dev/vdc")).Return(true),
 		mockMounter.EXPECT().FormatAndMount(
 			gomock.Eq("/dev/vdc"), gomock.Eq("/tmp/foo1"), gomock.Eq("ext4"), gomock.Eq([]string{"-O", "project,quota"}), gomock.Eq("prjquota")).Return(nil),
 		mockPmemer.EXPECT().GetPmemNamespaceDeivcePath(
