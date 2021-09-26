@@ -135,7 +135,7 @@ QuotaPath currently supports two types of devices:
 - `type: device` define quota path on top of local block device, the quota path is specified in `name` field:
   - options: mount options, `prjquota` is mandatory;
   - fstype: filesystem type, ext4 is used by default;
-  - devices: block device to be mounted, you should specify only one device;
+  - devices: block device to be mounted, every device will be check exists before being mounted to specific path. the first exists device will be mounted ;
 - `type: pmem` define quota path on top of local pmem resources, the quota path is specified in `name` field, you can speficy pmem regions in `regions` field;
 
 ### PMEM example
