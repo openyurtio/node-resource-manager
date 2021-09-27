@@ -171,6 +171,14 @@ func getPvListForLocalDisk(mounter utils.Mounter) []string {
 			localDeviceList = append(localDeviceList, devicePath)
 		}
 	}
+	//	nvmeDevicePattern := "nvme%vn1"
+	//	nvmeStartIndex := 0
+	//	if mounter.FileExists(fmt.Sprintf(nvmeDevicePattern, nvmeStartIndex)) {
+	//		for i :=nvmeStartIndex; i < localDeviceNum; i++ {
+	//			devicePath := filepath.Join("/dev", fmt.Sprintf(nvmeDevicePattern, i))
+	//			localDeviceList = append(localDeviceList, devicePath)
+	//		}
+	//	}
 	log.Infof("getPvListForLocalDisk:: Starting LocalDisk Mount: LocalDisk Number: %d, LocalDisk: %v", localDeviceNum, localDeviceList)
 	return localDeviceList
 }
