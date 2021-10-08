@@ -94,15 +94,15 @@ func ListDevice(vgName string) []string {
 }
 
 // NewEcsClient create a ecsClient object
-func NewEcsClient(accessKeyID, accessKeySecret, accessToken string) (ecsClient *ecs.Client) {
+func NewEcsClient(regionID, accessKeyID, accessKeySecret, accessToken string) (ecsClient *ecs.Client) {
 	var err error
 	if accessToken == "" {
-		ecsClient, err = ecs.NewClientWithAccessKey("cn-hangzhou", accessKeyID, accessKeySecret)
+		ecsClient, err = ecs.NewClientWithAccessKey(regionID, accessKeyID, accessKeySecret)
 		if err != nil {
 			return nil
 		}
 	} else {
-		ecsClient, err = ecs.NewClientWithStsToken("cn-hangzhou", accessKeyID, accessKeySecret, accessToken)
+		ecsClient, err = ecs.NewClientWithStsToken(regionID, accessKeyID, accessKeySecret, accessToken)
 		if err != nil {
 			return nil
 		}

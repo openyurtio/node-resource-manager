@@ -190,7 +190,7 @@ func getLocalDeviceNum() (int, error) {
 	regionID := GetMetaData(RegionIDTag)
 	localDeviceNum := 0
 	akID, akSecret, token := GetDefaultAK()
-	client := NewEcsClient(akID, akSecret, token)
+	client := NewEcsClient(regionID, akID, akSecret, token)
 
 	// Get Instance Type
 	request := ecs.CreateDescribeInstancesRequest()
