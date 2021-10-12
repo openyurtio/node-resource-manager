@@ -24,8 +24,8 @@ import (
 	"github.com/openyurtio/node-resource-manager/pkg/manager/memory"
 	"github.com/openyurtio/node-resource-manager/pkg/manager/quotapath"
 	"github.com/openyurtio/node-resource-manager/pkg/manager/volumegroup"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
+	klog "k8s.io/klog/v2"
 )
 
 // Manager interface define local resource manager's action
@@ -69,9 +69,9 @@ func (urm *UnifiedResourceManager) Run(stopCh <-chan struct{}) {
 	// UpdateUnifiedStorage
 	// go wait.Until(urm.RecordUnifiedResources, time.Duration(urm.UpdateInterval)*time.Second, stopCh)
 
-	log.Infof("Starting to update node storage on %s...", urm.NodeID)
+	klog.V(3).Infof("Starting to update node storage on %s...", urm.NodeID)
 	<-stopCh
-	log.Infof("Stop to update node storage...")
+	klog.V(3).Infof("Stop to update node storage...")
 }
 
 // CreateUnifiedResourceCRD ...
@@ -81,7 +81,7 @@ func (urm *UnifiedResourceManager) CreateUnifiedResourceCRD(ctx context.Context)
 
 // BuildUnifiedResource ...
 func (urm *UnifiedResourceManager) BuildUnifiedResource() {
-	log.Infof("BuildUnifiedResource:: Starting to maintain unified storage...")
+	klog.Infof("BuildUnifiedResource:: Starting to maintain unified storage...")
 	rms := []Manager{volumegroup.NewResourceManager(), quotapath.NewResourceManager(), memory.NewResourceManager()}
 
 	for {

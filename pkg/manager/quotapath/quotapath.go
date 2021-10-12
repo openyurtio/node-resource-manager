@@ -25,10 +25,10 @@ import (
 	"github.com/openyurtio/node-resource-manager/pkg/config"
 	CusErr "github.com/openyurtio/node-resource-manager/pkg/err"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
+	klog "k8s.io/klog/v2"
 )
 
 // ResourceManager ...
@@ -62,15 +62,15 @@ func (qrm *ResourceManager) AnalyseConfigMap() error {
 	yamlFile, err := ioutil.ReadFile(qrm.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Debugf("quota config file %s not exist", qrm.configPath)
+			klog.Errorf("quota config file %s not exist", qrm.configPath)
 			return nil
 		}
-		log.Errorf("AnalyseConfigMap:: yamlFile.Get error %v", err)
+		klog.Errorf("AnalyseConfigMap:: yamlFile.Get error %v", err)
 		return err
 	}
 	err = yaml.Unmarshal(yamlFile, quotaPathList)
 	if err != nil {
-		log.Errorf("AnalyseConfigMap:: parse yaml file error: %v", err)
+		klog.Errorf("AnalyseConfigMap:: parse yaml file error: %v", err)
 		return err
 	}
 	mountPathMap := map[string]string{}
@@ -79,7 +79,7 @@ func (qrm *ResourceManager) AnalyseConfigMap() error {
 		isMatched := utils.NodeFilter(quotaConfig.Operator, quotaConfig.Key, quotaConfig.Value, nodeInfo)
 		if isMatched {
 			if _, ok := mountPathMap[quotaConfig.Name]; ok {
-				log.Errorf("AnalyseConfigMap:: quotapath config has multi mount path config [%s] on same node", quotaConfig.Name)
+				klog.Errorf("AnalyseConfigMap:: quotapath config has multi mount path config [%s] on same node", quotaConfig.Name)
 				continue
 			}
 			switch quotaConfig.Topology.Type {
@@ -93,7 +93,7 @@ func (qrm *ResourceManager) AnalyseConfigMap() error {
 			case "pmem":
 				conf := &QpConfig{}
 				if len(quotaConfig.Topology.Regions) != 1 {
-					log.Errorf("AnalyseConfigMap:: quotapath regions [%s] config only support one device", quotaConfig.Topology.Regions)
+					klog.Errorf("AnalyseConfigMap:: quotapath regions [%s] config only support one device", quotaConfig.Topology.Regions)
 					continue
 				}
 				conf.Region = quotaConfig.Topology.Regions[0]
@@ -102,7 +102,7 @@ func (qrm *ResourceManager) AnalyseConfigMap() error {
 				conf.Type = quotaConfig.Topology.Type
 				regionQuotaConfig[quotaConfig.Name] = conf
 			default:
-				log.Errorf("AnalyseConfigMap:: not support quotapath config type: [%v]", quotaConfig.Topology.Type)
+				klog.Errorf("AnalyseConfigMap:: not support quotapath config type: [%v]", quotaConfig.Topology.Type)
 				continue
 			}
 			mountPathMap[quotaConfig.Name] = ""
@@ -116,15 +116,15 @@ func (qrm *ResourceManager) AnalyseConfigMap() error {
 
 // ApplyResourceDiff apply quotapath resource to current node
 func (qrm *ResourceManager) ApplyResourceDiff() error {
-	log.Infof("ApplyResourceDiff: matched node resources qrm.DeviceQuotaPath: %v, qrm.RegionQuotaPath: %v", qrm.DeviceQuotaPath, qrm.RegionQuotaPath)
+	klog.Infof("ApplyResourceDiff: matched node resources qrm.DeviceQuotaPath: %v, qrm.RegionQuotaPath: %v", qrm.DeviceQuotaPath, qrm.RegionQuotaPath)
 	qrm.mkfsOption = strings.Split("-O project,quota", " ")
 	err := qrm.applyDeivceQuotaPath()
 	if err != nil {
-		log.Errorf("ApplyResourceDiff:: apply deivce quotapath error: %v", err)
+		klog.Errorf("ApplyResourceDiff:: apply deivce quotapath error: %v", err)
 	}
 	err = qrm.applyRegionQuotaPath()
 	if err != nil {
-		log.Errorf("ApplyResourceDiff:: apply region quotapath error: %v", err)
+		klog.Errorf("ApplyResourceDiff:: apply region quotapath error: %v", err)
 	}
 	return err
 }
@@ -139,13 +139,13 @@ func (qrm *ResourceManager) applyDeivceQuotaPath() error {
 	for mountPath, deivceQuotaPathConfig := range qrm.DeviceQuotaPath {
 		err := qrm.mounter.EnsureFolder(mountPath)
 		if err != nil {
-			log.Errorf("applyDeivceQuotaPath:: ensure quotapath error: %v", err)
+			klog.Errorf("applyDeivceQuotaPath:: ensure quotapath error: %v", err)
 			continue
 		}
-		log.Infof("applyDeivceQuotaPath:: device quotapath config devices: %v", deivceQuotaPathConfig.Devices)
+		klog.Infof("applyDeivceQuotaPath:: device quotapath config devices: %v", deivceQuotaPathConfig.Devices)
 		for _, device := range deivceQuotaPathConfig.Devices {
 			if !qrm.mounter.FileExists(device) {
-				log.Warnf("applyDeivceQuotaPath:: device %v not exists", device)
+				klog.Errorf("applyDeivceQuotaPath:: device %v not exists", device)
 				continue
 			}
 			err = qrm.mounter.FormatAndMount(device, mountPath, deivceQuotaPathConfig.Fstype, qrm.mkfsOption, deivceQuotaPathConfig.Options)
@@ -153,7 +153,7 @@ func (qrm *ResourceManager) applyDeivceQuotaPath() error {
 				if errors.Is(err, &CusErr.ExistsFormatErr{}) {
 					qrm.recorder.Event(ref, v1.EventTypeWarning, "ExistsFormatErr", err.Error())
 				}
-				log.Errorf("applyDeivceQuotaPath:: device: %v, mounter FormatAndMount error: %v", device, err)
+				klog.Errorf("applyDeivceQuotaPath:: device: %v, mounter FormatAndMount error: %v", device, err)
 				continue
 			}
 			break
@@ -169,27 +169,27 @@ func (qrm *ResourceManager) applyRegionQuotaPath() error {
 			if strings.Contains(err.Error(), "list Namespace for region get 0 or multi namespaces") {
 				err := qrm.pmemer.CreateNamespace(regionQuotaPathConfig.Region, "lvm")
 				if err != nil {
-					log.Errorf("applyRegionQuotaPath:: create namespace for region [%s], error: %v", regionQuotaPathConfig.Region, err)
+					klog.Errorf("applyRegionQuotaPath:: create namespace for region [%s], error: %v", regionQuotaPathConfig.Region, err)
 					continue
 				}
 				devicePath, _, err = qrm.pmemer.GetPmemNamespaceDeivcePath(regionQuotaPathConfig.Region, "fsdax")
 				if err != nil {
-					log.Errorf("applyRegionQuotaPath:: get namespace device path for region [%s], error: %v", regionQuotaPathConfig.Region, err)
+					klog.Errorf("applyRegionQuotaPath:: get namespace device path for region [%s], error: %v", regionQuotaPathConfig.Region, err)
 					continue
 				}
 			} else {
-				log.Errorf("applyRegionQuotaPath:: get region [%s] namespace device path error: %v", regionQuotaPathConfig.Region, err)
+				klog.Errorf("applyRegionQuotaPath:: get region [%s] namespace device path error: %v", regionQuotaPathConfig.Region, err)
 				continue
 			}
 		}
 		err = qrm.mounter.EnsureFolder(mountPath)
 		if err != nil {
-			log.Errorf("applyRegionQuotaPath:: ensure quotapath error: %v", err)
+			klog.Errorf("applyRegionQuotaPath:: ensure quotapath error: %v", err)
 			continue
 		}
 		err = qrm.mounter.FormatAndMount(devicePath, mountPath, regionQuotaPathConfig.Fstype, qrm.mkfsOption, regionQuotaPathConfig.Options)
 		if err != nil {
-			log.Errorf("applyRegionQuotaPath:: mounter FormatAndMount error: %v", err)
+			klog.Errorf("applyRegionQuotaPath:: mounter FormatAndMount error: %v", err)
 			continue
 		}
 	}

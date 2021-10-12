@@ -67,7 +67,6 @@ func EnsureVolumeGroupEnv() (string, error, *ResourceManager) {
 	}
 
 	mkdirArgs := []string{"-p", filepath.Dir(configPath)}
-	//log.Infof("mkdir for folder, the command is %s %v", mdkirCmd, mkdirArgs)
 	_, err = exec.Command(mdkirCmd, mkdirArgs...).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("EnsureFolder:: mkdir for folder error: %v", err), nil

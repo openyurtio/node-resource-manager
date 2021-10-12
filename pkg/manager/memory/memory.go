@@ -22,9 +22,9 @@ import (
 
 	"github.com/openyurtio/node-resource-manager/pkg/config"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/tools/record"
+	klog "k8s.io/klog/v2"
 )
 
 // ResourceManager ...
@@ -53,15 +53,15 @@ func (mrm *ResourceManager) AnalyseConfigMap() error {
 	yamlFile, err := ioutil.ReadFile(mrm.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Debugf("memory config file %s not exist", mrm.configPath)
+			klog.Errorf("memory config file %s not exist", mrm.configPath)
 			return nil
 		}
-		log.Errorf("AnalyseConfigMap:: yamlFile.Get memory error %v", err)
+		klog.Errorf("AnalyseConfigMap:: yamlFile.Get memory error %v", err)
 		return err
 	}
 	err = yaml.Unmarshal(yamlFile, memoryList)
 	if err != nil {
-		log.Errorf("AnalyseConfigMap:: parse yaml file error: %v", err)
+		klog.Errorf("AnalyseConfigMap:: parse yaml file error: %v", err)
 		return err
 	}
 
@@ -71,7 +71,7 @@ func (mrm *ResourceManager) AnalyseConfigMap() error {
 		if isMatched {
 			conf := &MConfig{}
 			if len(memConfig.Topology.Regions) != 1 {
-				log.Errorf("AnalyseConfigMap:: regions has multi config %s", memConfig.Topology.Regions)
+				klog.Errorf("AnalyseConfigMap:: regions has multi config %s", memConfig.Topology.Regions)
 				continue
 			}
 			conf.Region = memConfig.Topology.Regions[0]
@@ -85,30 +85,30 @@ func (mrm *ResourceManager) AnalyseConfigMap() error {
 
 // ApplyResourceDiff apply memory resource to current node
 func (mrm *ResourceManager) ApplyResourceDiff() error {
-	log.Infof("ApplyResourceDiff: matched node resources mrm.Memory: %v", mrm.Memory)
+	klog.Infof("ApplyResourceDiff: matched node resources mrm.Memory: %v", mrm.Memory)
 	for _, memConfig := range mrm.Memory {
 		devicePath, _, err := mrm.pmem.GetPmemNamespaceDeivcePath(memConfig.Region, "devdax")
 		if err != nil {
 			err := mrm.pmem.CreateNamespace(memConfig.Region, "dax")
 			if err != nil {
-				log.Errorf("applyResourceDiff:: create kmem namespace for region [%s], error: %v", memConfig.Region, err)
+				klog.Errorf("applyResourceDiff:: create kmem namespace for region [%s], error: %v", memConfig.Region, err)
 				continue
 			}
 			devicePath, _, err = mrm.pmem.GetPmemNamespaceDeivcePath(memConfig.Region, "devdax")
 			if err != nil {
-				log.Errorf("applyResourceDiff:: list kmem namespace for region [%s], error: %v", memConfig.Region, err)
+				klog.Errorf("applyResourceDiff:: list kmem namespace for region [%s], error: %v", memConfig.Region, err)
 				continue
 			}
 		}
 		isCreated, err := mrm.pmem.CheckKMEMCreated(devicePath[5:])
 		if err != nil {
-			log.Errorf("applyResourceDiff:: check kmem create error: %v", err)
+			klog.Errorf("applyResourceDiff:: check kmem create error: %v", err)
 			continue
 		}
 		if !isCreated {
 			err := mrm.pmem.MakeNamespaceMemory(devicePath[5:])
 			if err != nil {
-				log.Errorf("applyRegionQuotaPath:: make kmem memory failed %v", err)
+				klog.Errorf("applyRegionQuotaPath:: make kmem memory failed %v", err)
 				continue
 			}
 		}

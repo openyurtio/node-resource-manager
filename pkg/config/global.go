@@ -19,11 +19,11 @@ package config
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	klog "k8s.io/klog/v2"
 )
 
 // GlobalConfig save global values for plugin
@@ -51,16 +51,16 @@ func GlobalConfigSet(nodeID, masterURL, kubeconfig string) {
 	// Global Configs Set
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 	if err != nil {
-		log.Fatalf("Error building kubeconfig: %s", err.Error())
+		klog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		log.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		klog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
 	node, err := kubeClient.CoreV1().Nodes().Get(context.Background(), nodeID, metav1.GetOptions{})
 	if err != nil {
-		log.Fatalf("Error get current node info: %s", err.Error())
+		klog.Fatalf("Error get current node info: %s", err.Error())
 	}
 
 	// Global Config Set

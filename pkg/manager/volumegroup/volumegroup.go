@@ -28,10 +28,10 @@ import (
 	"github.com/openyurtio/node-resource-manager/pkg/config"
 	CusErr "github.com/openyurtio/node-resource-manager/pkg/err"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
+	klog "k8s.io/klog/v2"
 )
 
 const (
@@ -80,10 +80,10 @@ func (vrm *ResourceManager) createVg(vgName string, desirePvList []string) error
 	tagList := []string{}
 	out, err := vrm.lvmer.CreateVG(vgName, pvListStr, tagList)
 	if err != nil {
-		log.Errorf("createVg:: Create Vg(%s) error with: %s", vgName, err.Error())
+		klog.Errorf("createVg:: Create Vg(%s) error with: %s", vgName, err.Error())
 		return err
 	}
-	log.Infof("createVg:: Successful Create Vg(%s) with out: %s", vgName, out)
+	klog.Infof("createVg:: Successful Create Vg(%s) with out: %s", vgName, out)
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (vrm *ResourceManager) createVg(vgName string, desirePvList []string) error
 func (vrm *ResourceManager) updateVg(vgName string, expectPvList, realPvList []string) error {
 	if len(expectPvList) < len(realPvList) {
 		msg := fmt.Sprintf("updateVg:: VolumeGroup: %s, expected pv list should be more than current pv list when update volume group: %v, %v", vgName, expectPvList, realPvList)
-		log.Errorf(msg)
+		klog.Errorf(msg)
 		return errors.New(msg)
 	}
 
@@ -99,7 +99,7 @@ func (vrm *ResourceManager) updateVg(vgName string, expectPvList, realPvList []s
 	removePv := difference(realPvList, expectPvList)
 	if len(removePv) > 0 {
 		msg := fmt.Sprintf("updateVg:: VolumeGroup: %s, expected pv list should be more than current pv list when update volume group: expect %v, current %v, and not support remove pv now", vgName, expectPvList, realPvList)
-		log.Errorf(msg)
+		klog.Errorf(msg)
 		return errors.New(msg)
 	}
 
@@ -107,7 +107,7 @@ func (vrm *ResourceManager) updateVg(vgName string, expectPvList, realPvList []s
 	addedPv := difference(expectPvList, realPvList)
 	if len(addedPv) == 0 {
 		msg := fmt.Sprintf("updateVg:: VolumeGroup: %s, expected pv list same with current pv list, expect %v, current %v", vgName, expectPvList, realPvList)
-		log.Errorf(msg)
+		klog.Errorf(msg)
 		return errors.New(msg)
 	}
 
@@ -115,10 +115,10 @@ func (vrm *ResourceManager) updateVg(vgName string, expectPvList, realPvList []s
 	_, err := vrm.lvmer.ExtendVG(vgName, pvListStr)
 	if err != nil {
 		msg := fmt.Sprintf("updateVg:: Extend vg(%s) error: %v", vgName, err)
-		log.Errorf(msg)
+		klog.Errorf(msg)
 		return errors.New(msg)
 	}
-	log.Infof("updateVg:: Successful Add pvs %s to VolumeGroup %s", addedPv, vgName)
+	klog.Infof("updateVg:: Successful Add pvs %s to VolumeGroup %s", addedPv, vgName)
 	return nil
 }
 
@@ -142,11 +142,11 @@ func getPvListForLocalDisk(mounter utils.Mounter) []string {
 	localDeviceList := []string{}
 	localDeviceNum, err := getLocalDeviceNum()
 	if err != nil {
-		log.Errorf("getPvListForLocalDisk:: LocalDiskMount:: Get Local Disk Number Error, Error: %s", err.Error())
+		klog.Errorf("getPvListForLocalDisk:: LocalDiskMount:: Get Local Disk Number Error, Error: %s", err.Error())
 		return localDeviceList
 	}
 	if localDeviceNum < 1 {
-		log.Errorf("getPvListForLocalDisk:: VG not exist and also not local disk exist, localDeivceNum: %v", localDeviceNum)
+		klog.Errorf("getPvListForLocalDisk:: VG not exist and also not local disk exist, localDeivceNum: %v", localDeviceNum)
 		return localDeviceList
 	}
 
@@ -179,7 +179,7 @@ func getPvListForLocalDisk(mounter utils.Mounter) []string {
 	//			localDeviceList = append(localDeviceList, devicePath)
 	//		}
 	//	}
-	log.Infof("getPvListForLocalDisk:: Starting LocalDisk Mount: LocalDisk Number: %d, LocalDisk: %v", localDeviceNum, localDeviceList)
+	klog.V(3).Infof("getPvListForLocalDisk:: Starting LocalDisk Mount: LocalDisk Number: %d, LocalDisk: %v", localDeviceNum, localDeviceList)
 	return localDeviceList
 }
 
@@ -198,11 +198,11 @@ func getLocalDeviceNum() (int, error) {
 	request.InstanceIds = "[\"" + instanceID + "\"]"
 	instanceResponse, err := client.DescribeInstances(request)
 	if err != nil {
-		log.Errorf("getLocalDeviceNum:: Describe Instance: %s Error: %s", instanceID, err.Error())
+		klog.Errorf("getLocalDeviceNum:: Describe Instance: %s Error: %s", instanceID, err.Error())
 		return -1, err
 	}
 	if instanceResponse == nil || len(instanceResponse.Instances.Instance) == 0 {
-		log.Infof("getLocalDeviceNum:: Describe Instance Error, with empty response: %s", instanceID)
+		klog.Infof("getLocalDeviceNum:: Describe Instance Error, with empty response: %s", instanceID)
 		return -1, err
 	}
 
@@ -213,13 +213,13 @@ func getLocalDeviceNum() (int, error) {
 	instanceTypeRequest.InstanceTypeFamily = instanceTypeFamily
 	response, err := client.DescribeInstanceTypes(instanceTypeRequest)
 	if err != nil {
-		log.Errorf("getLocalDeviceNum:: Describe Instance: %s, Type: %s, Family: %s Error: %s", instanceID, instanceTypeID, instanceTypeFamily, err.Error())
+		klog.Errorf("getLocalDeviceNum:: Describe Instance: %s, Type: %s, Family: %s Error: %s", instanceID, instanceTypeID, instanceTypeFamily, err.Error())
 		return -1, err
 	}
 	for _, instance := range response.InstanceTypes.InstanceType {
 		if instance.InstanceTypeId == instanceTypeID {
 			localDeviceNum = instance.LocalStorageAmount
-			log.Infof("getLocalDeviceNum:: Instance: %s, InstanceType: %s, InstanceLocalDiskNum: %d", instanceID, instanceTypeID, localDeviceNum)
+			klog.Infof("getLocalDeviceNum:: Instance: %s, InstanceType: %s, InstanceLocalDiskNum: %d", instanceID, instanceTypeID, localDeviceNum)
 			break
 		}
 	}
@@ -231,10 +231,10 @@ func getLocalDeviceNum() (int, error) {
 func (vrm *ResourceManager) getRealVgList() ([]*VgDeviceConfig, error) {
 	physicalVolumeList, err := vrm.lvmer.ListPhysicalVolume()
 	if err != nil {
-		log.Errorf("List PhysicalVolume get error %v", err)
+		klog.Errorf("List PhysicalVolume get error %v", err)
 		return nil, err
 	}
-	log.Debugf("Real VolumeGroup List: %+v", physicalVolumeList)
+	klog.V(3).Infof("Real VolumeGroup List: %+v", physicalVolumeList)
 	nodeVgList := []*VgDeviceConfig{}
 	for _, physicalVolume := range physicalVolumeList {
 		isAlreadyAdded := false
@@ -242,7 +242,7 @@ func (vrm *ResourceManager) getRealVgList() ([]*VgDeviceConfig, error) {
 			if nodeVg.Name == physicalVolume.VgName {
 				nodeVg.PhysicalVolumes = append(nodeVg.PhysicalVolumes, physicalVolume.Name)
 				isAlreadyAdded = true
-				log.Debugf("getRealVgList:: physicalVolumes: %v, physicalVolumeName: %s, volumeGroupName: %v", nodeVg.PhysicalVolumes, physicalVolume.Name, physicalVolume.VgName)
+				klog.V(3).Infof("getRealVgList:: physicalVolumes: %v, physicalVolumeName: %s, volumeGroupName: %v", nodeVg.PhysicalVolumes, physicalVolume.Name, physicalVolume.VgName)
 			}
 		}
 		if isAlreadyAdded == false {
@@ -250,7 +250,7 @@ func (vrm *ResourceManager) getRealVgList() ([]*VgDeviceConfig, error) {
 			vgPvConfig.Name = physicalVolume.VgName
 			vgPvConfig.PhysicalVolumes = append(vgPvConfig.PhysicalVolumes, physicalVolume.Name)
 			nodeVgList = append(nodeVgList, vgPvConfig)
-			log.Debugf("Add New VolumeGroupPvConfig: %s, %s, %v", physicalVolume.Name, physicalVolume.VgName, vgPvConfig)
+			klog.V(3).Infof("Add New VolumeGroupPvConfig: %s, %s, %v", physicalVolume.Name, physicalVolume.VgName, vgPvConfig)
 		}
 	}
 	return nodeVgList, nil
@@ -282,16 +282,16 @@ func (vrm *ResourceManager) AnalyseConfigMap() error {
 	yamlFile, err := ioutil.ReadFile(vrm.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Debugf("volume config file %s not exist", vrm.configPath)
+			klog.Errorf("volume config file %s not exist", vrm.configPath)
 			return nil
 		}
-		log.Errorf("AnalyseConfigMap:: ReadFile: yamlFile.Get error #%v ", err)
+		klog.Errorf("AnalyseConfigMap:: ReadFile: yamlFile.Get error #%v ", err)
 		return err
 	}
 
 	err = yaml.Unmarshal(yamlFile, volumeGroupList)
 	if err != nil {
-		log.Errorf("AnalyseConfigMap:: Unmarshal: parse yaml file error: %v", err)
+		klog.Errorf("AnalyseConfigMap:: Unmarshal: parse yaml file error: %v", err)
 		return err
 	}
 
@@ -300,7 +300,7 @@ func (vrm *ResourceManager) AnalyseConfigMap() error {
 		vgDeviceConfig := &VgDeviceConfig{}
 
 		isMatched := utils.NodeFilter(devConfig.Operator, devConfig.Key, devConfig.Value, nodeInfo)
-		log.Infof("AnalyseConfigMap:: isMatched: %v, devConfig: %+v", isMatched, devConfig)
+		klog.V(3).Infof("AnalyseConfigMap:: isMatched: %v, devConfig: %+v", isMatched, devConfig)
 
 		if isMatched {
 			switch devConfig.Topology.Type {
@@ -317,7 +317,7 @@ func (vrm *ResourceManager) AnalyseConfigMap() error {
 			case VgTypePmem:
 				vgRegionMap[devConfig.Name] = getExistDevices(devConfig.Topology.Regions)
 			default:
-				log.Errorf("AnalyseConfigMap:: Get unsupported volumegroup type: %s", devConfig.Topology.Type)
+				klog.Errorf("AnalyseConfigMap:: Get unsupported volumegroup type: %s", devConfig.Topology.Type)
 				continue
 			}
 		}
@@ -333,7 +333,7 @@ func (vrm *ResourceManager) ApplyResourceDiff() error {
 	// Get Actual VolumeGroup on node.
 	actualVgConfig, err := vrm.getRealVgList()
 	if err != nil {
-		log.Errorf("ApplyResourceDiff:: Get Node Actual VolumeGroup Error: %s", err.Error())
+		klog.Errorf("ApplyResourceDiff:: Get Node Actual VolumeGroup Error: %s", err.Error())
 		return err
 	}
 	if len(vrm.volumeGroupDeviceMap) > 0 {
@@ -343,14 +343,14 @@ func (vrm *ResourceManager) ApplyResourceDiff() error {
 		vrm.applyRegion(actualVgConfig)
 	}
 
-	log.Infof("ApplyResourceDiff:: Finish volumegroup loop...")
+	klog.Infof("ApplyResourceDiff:: Finish volumegroup loop...")
 	return nil
 }
 
 func (vrm *ResourceManager) applyDeivce(actualVgConfig []*VgDeviceConfig) error {
 	// process each expect volume group
 	for expectVgName, expectVg := range vrm.volumeGroupDeviceMap {
-		log.Infof("applyDevice:: expectName: %s, expectVgDevices: %v", expectVgName, expectVg.PhysicalVolumes)
+		klog.Infof("applyDevice:: expectName: %s, expectVgDevices: %v", expectVgName, expectVg.PhysicalVolumes)
 		isVgExist := false
 		isVgNeedUpdate := false
 		realPhysicalVolumeList := []string{}
@@ -367,10 +367,10 @@ func (vrm *ResourceManager) applyDeivce(actualVgConfig []*VgDeviceConfig) error 
 			}
 		}
 		if !isVgExist {
-			log.Infof("Create VolumeGroup:: %+v, %+v", expectVgName, expectVg.PhysicalVolumes)
+			klog.Infof("Create VolumeGroup:: %+v, %+v", expectVgName, expectVg.PhysicalVolumes)
 			return vrm.createVg(expectVgName, expectVg.PhysicalVolumes)
 		} else if isVgNeedUpdate {
-			log.Infof("Update VolumeGroup:: %+v, %+v", expectVgName, expectVg.PhysicalVolumes)
+			klog.Infof("Update VolumeGroup:: %+v, %+v", expectVgName, expectVg.PhysicalVolumes)
 			return vrm.updateVg(expectVgName, expectVg.PhysicalVolumes, realPhysicalVolumeList)
 		}
 	}
@@ -380,7 +380,7 @@ func (vrm *ResourceManager) applyDeivce(actualVgConfig []*VgDeviceConfig) error 
 func (vrm *ResourceManager) applyRegion(actualVgConfig []*VgDeviceConfig) error {
 	regions, err := vrm.pmemer.GetRegions()
 	if err != nil {
-		log.Errorf("applyRegion: get pmem regions error: %v", err)
+		klog.Errorf("applyRegion: get pmem regions error: %v", err)
 		return err
 	}
 
@@ -405,20 +405,20 @@ func (vrm *ResourceManager) applyRegion(actualVgConfig []*VgDeviceConfig) error 
 	}
 	updatedRegions, err := vrm.pmemer.GetRegions()
 	if err != nil {
-		log.Errorf("applyRegion: get pmem regions error: %v", err)
+		klog.Errorf("applyRegion: get pmem regions error: %v", err)
 		return err
 	}
 	for expectVgName, expectRegions := range vrm.volumeGroupRegionMap {
-		log.Infof("applyDevice:: expectVgName: %v, expectRegions: %v", expectVgName, expectRegions)
+		klog.Infof("applyDevice:: expectVgName: %v, expectRegions: %v", expectVgName, expectRegions)
 		expectLvmInUseDevices := []string{}
 		expectLvmNotInUseDevices := []string{}
 		for _, expectRegion := range expectRegions {
 			devicePath := utils.ConvertNamespace2LVMDevicePath(utils.ConvertRegion2Namespace(expectRegion), updatedRegions)
 			if devicePath == "" {
-				log.Errorf("applyRegion:: did not get namespace.Blockdev from expectRegion: %s, regions: %v", expectRegion, updatedRegions)
+				klog.Errorf("applyRegion:: did not get namespace.Blockdev from expectRegion: %s, regions: %v", expectRegion, updatedRegions)
 			}
 			if vrm.pmemer.CheckNamespaceUsed(devicePath) {
-				log.Warnf("NameSpace heen used region: %v, devicePath: %s", expectRegion, devicePath)
+				klog.Errorf("NameSpace heen used region: %v, devicePath: %s", expectRegion, devicePath)
 				expectLvmInUseDevices = append(expectLvmInUseDevices, devicePath)
 			}
 			expectLvmNotInUseDevices = append(expectLvmNotInUseDevices, devicePath)
@@ -429,7 +429,7 @@ func (vrm *ResourceManager) applyRegion(actualVgConfig []*VgDeviceConfig) error 
 			if expectVgName == actualVg.Name {
 				isVgNeedCreate = false
 				if otherUsage := difference(expectLvmInUseDevices, actualVg.PhysicalVolumes); len(otherUsage) != 0 {
-					log.Errorf("applyRegion:: device [%s] is used in other usage", otherUsage)
+					klog.Errorf("applyRegion:: device [%s] is used in other usage", otherUsage)
 					break
 				}
 				updatePvs := difference(expectLvmNotInUseDevices, actualVg.PhysicalVolumes)
@@ -441,7 +441,7 @@ func (vrm *ResourceManager) applyRegion(actualVgConfig []*VgDeviceConfig) error 
 		}
 		if isVgNeedCreate {
 			if len(expectLvmInUseDevices) != 0 {
-				log.Errorf("applyRegion:: attempt to use inused devices [%s] to create volumegroup", expectLvmInUseDevices)
+				klog.Errorf("applyRegion:: attempt to use inused devices [%s] to create volumegroup", expectLvmInUseDevices)
 				continue
 			}
 			vrm.createVg(expectVgName, expectLvmNotInUseDevices)
@@ -457,9 +457,9 @@ func (vrm *ResourceManager) updatePmemVg(vgName string, addedPv []string) error 
 	_, err := vrm.lvmer.ExtendVG(vgName, pvListStr)
 	if err != nil {
 		msg := fmt.Sprintf("updatePmemVg:: Extend vg(%s) error: %v", vgName, err)
-		log.Errorf(msg)
+		klog.Errorf(msg)
 		return errors.New(msg)
 	}
-	log.Infof("updatePmemVg:: Successful Add pvs %s to VolumeGroup %s", addedPv, vgName)
+	klog.Infof("updatePmemVg:: Successful Add pvs %s to VolumeGroup %s", addedPv, vgName)
 	return nil
 }

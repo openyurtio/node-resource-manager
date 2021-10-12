@@ -23,7 +23,8 @@ import (
 	"time"
 
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
-	log "github.com/sirupsen/logrus"
+
+	klog "k8s.io/klog/v2"
 )
 
 // GetDefaultAK read default ak from local file or from STS
@@ -66,20 +67,20 @@ func GetSTSAK() (string, string, string) {
 	subpath := "ram/security-credentials/"
 	roleName, err := utils.GetMetaData(subpath)
 	if err != nil {
-		log.Errorf("GetSTSToken: request roleName with error: %s", err.Error())
+		klog.Errorf("GetSTSToken: request roleName with error: %s", err.Error())
 		return "", "", ""
 	}
 
 	fullPath := filepath.Join(subpath, roleName)
 	roleInfo, err := utils.GetMetaData(fullPath)
 	if err != nil {
-		log.Errorf("GetSTSToken: request roleInfo with error: %s", err.Error())
+		klog.Errorf("GetSTSToken: request roleInfo with error: %s", err.Error())
 		return "", "", ""
 	}
 
 	err = json.Unmarshal([]byte(roleInfo), &roleAuth)
 	if err != nil {
-		log.Errorf("GetSTSToken: unmarshal roleInfo: %s, with error: %s", roleInfo, err.Error())
+		klog.Errorf("GetSTSToken: unmarshal roleInfo: %s, with error: %s", roleInfo, err.Error())
 		return "", "", ""
 	}
 	return roleAuth.AccessKeyID, roleAuth.AccessKeySecret, roleAuth.SecurityToken

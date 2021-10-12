@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/openyurtio/node-resource-manager/pkg/model"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -34,6 +33,7 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	klog "k8s.io/klog/v2"
 )
 
 const (
@@ -111,7 +111,7 @@ func NodeFilter(configOperator metav1.LabelSelectorOperator, configKey, configVa
 			isMatched = true
 		}
 	default:
-		log.Errorf("Get unsupported operator: %s", configOperator)
+		klog.Errorf("Get unsupported operator: %s", configOperator)
 	}
 	return isMatched
 }
@@ -186,11 +186,11 @@ func IsPart(largeList, smallList []string) bool {
 func NewEventRecorder() record.EventRecorder {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatalf("NewEventRecorder:: Failed to create cluster config: %v", err)
+		klog.Fatalf("NewEventRecorder:: Failed to create cluster config: %v", err)
 	}
 	clientset := kubernetes.NewForConfigOrDie(config)
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartLogging(log.Infof)
+	broadcaster.StartLogging(klog.Infof)
 	source := v1.EventSource{Component: NodeResourceManager}
 	if broadcaster != nil {
 		sink := &v1core.EventSinkImpl{
