@@ -83,4 +83,4 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-go-
       - name: Build All Images
-        run: make build
+        run: ARCH=amd64 make build
