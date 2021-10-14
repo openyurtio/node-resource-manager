@@ -26,9 +26,14 @@ import (
 	"strings"
 
 	"github.com/openyurtio/node-resource-manager/pkg/model"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	klog "k8s.io/klog/v2"
 )
 
 const (
@@ -37,6 +42,9 @@ const (
 
 	// NsenterCmd use to init resource
 	NsenterCmd = "/usr/bin/nsenter --mount=/proc/1/ns/mnt --ipc=/proc/1/ns/ipc --net=/proc/1/ns/net --uts=/proc/1/ns/uts "
+
+	// NodeResourceManager is resource manager
+	NodeResourceManager = "node-resource-manager"
 )
 
 // ErrParse ...
@@ -103,7 +111,7 @@ func NodeFilter(configOperator metav1.LabelSelectorOperator, configKey, configVa
 			isMatched = true
 		}
 	default:
-		log.Errorf("Get unsupported operator: %s", configOperator)
+		klog.Errorf("Get unsupported operator: %s", configOperator)
 	}
 	return isMatched
 }
@@ -173,4 +181,22 @@ func IsPart(largeList, smallList []string) bool {
 		}
 	}
 	return isPartFlag
+}
+
+func NewEventRecorder() record.EventRecorder {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		klog.Fatalf("NewEventRecorder:: Failed to create cluster config: %v", err)
+	}
+	clientset := kubernetes.NewForConfigOrDie(config)
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartLogging(klog.Infof)
+	source := v1.EventSource{Component: NodeResourceManager}
+	if broadcaster != nil {
+		sink := &v1core.EventSinkImpl{
+			Interface: v1core.New(clientset.CoreV1().RESTClient()).Events(""),
+		}
+		broadcaster.StartRecordingToSink(sink)
+	}
+	return broadcaster.NewRecorder(scheme.Scheme, source)
 }

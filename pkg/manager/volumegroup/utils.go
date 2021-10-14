@@ -31,7 +31,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
-	log "github.com/sirupsen/logrus"
+	klog "k8s.io/klog/v2"
 )
 
 const (
@@ -93,36 +93,16 @@ func ListDevice(vgName string) []string {
 	return deviceList
 }
 
-func diffDevice(devList1, devList2 []string) bool {
-	if len(devList1) != len(devList2) {
-		return true
-	}
-	for _, dev1 := range devList1 {
-		isSearched := false
-		for _, dev2 := range devList2 {
-			if dev1 == dev2 {
-				isSearched = true
-				break
-			}
-		}
-		if !isSearched {
-			return true
-		}
-	}
-
-	return false
-}
-
 // NewEcsClient create a ecsClient object
-func NewEcsClient(accessKeyID, accessKeySecret, accessToken string) (ecsClient *ecs.Client) {
+func NewEcsClient(regionID, accessKeyID, accessKeySecret, accessToken string) (ecsClient *ecs.Client) {
 	var err error
 	if accessToken == "" {
-		ecsClient, err = ecs.NewClientWithAccessKey("cn-hangzhou", accessKeyID, accessKeySecret)
+		ecsClient, err = ecs.NewClientWithAccessKey(regionID, accessKeyID, accessKeySecret)
 		if err != nil {
 			return nil
 		}
 	} else {
-		ecsClient, err = ecs.NewClientWithStsToken("cn-hangzhou", accessKeyID, accessKeySecret, accessToken)
+		ecsClient, err = ecs.NewClientWithStsToken(regionID, accessKeyID, accessKeySecret, accessToken)
 		if err != nil {
 			return nil
 		}
@@ -152,10 +132,10 @@ func GetDefaultAK() (string, string, string) {
 	if accessKeyID == "" || accessSecret == "" {
 		accessKeyID, accessSecret, accessToken = GetManagedToken()
 		if accessKeyID != "" {
-			log.Infof("Get AK: use Managed AK")
+			klog.Infof("Get AK: use Managed AK")
 		}
 	} else {
-		log.Infof("Get AK: use Local AK")
+		klog.Infof("Get AK: use Local AK")
 	}
 
 	if accessKeyID == "" || accessSecret == "" {
@@ -184,7 +164,7 @@ func GetSTSAK() (string, string, string) {
 
 	err := json.Unmarshal([]byte(roleInfo), &roleAuth)
 	if err != nil {
-		log.Errorf("GetSTSToken: unmarshal roleInfo: %s, with error: %s", roleInfo, err.Error())
+		klog.Errorf("GetSTSToken: unmarshal roleInfo: %s, with error: %s", roleInfo, err.Error())
 		return "", "", ""
 	}
 	return roleAuth.AccessKeyID, roleAuth.AccessKeySecret, roleAuth.SecurityToken
@@ -197,39 +177,39 @@ func GetManagedToken() (string, string, string) {
 	if _, err := os.Stat(ConfigPath); err == nil {
 		encodeTokenCfg, err := ioutil.ReadFile(ConfigPath)
 		if err != nil {
-			log.Errorf("failed to read token config, err: %v", err)
+			klog.Errorf("failed to read token config, err: %v", err)
 			return "", "", ""
 		}
 		err = json.Unmarshal(encodeTokenCfg, &akInfo)
 		if err != nil {
-			log.Errorf("error unmarshal token config: %v", err)
+			klog.Errorf("error unmarshal token config: %v", err)
 			return "", "", ""
 		}
 		keyring := akInfo.Keyring
 		ak, err := Decrypt(akInfo.AccessKeyID, []byte(keyring))
 		if err != nil {
-			log.Errorf("failed to decode ak, err: %v", err)
+			klog.Errorf("failed to decode ak, err: %v", err)
 			return "", "", ""
 		}
 
 		sk, err := Decrypt(akInfo.AccessKeySecret, []byte(keyring))
 		if err != nil {
-			log.Errorf("failed to decode sk, err: %v", err)
+			klog.Errorf("failed to decode sk, err: %v", err)
 			return "", "", ""
 		}
 
 		token, err := Decrypt(akInfo.SecurityToken, []byte(keyring))
 		if err != nil {
-			log.Errorf("failed to decode token, err: %v", err)
+			klog.Errorf("failed to decode token, err: %v", err)
 			return "", "", ""
 		}
 		layout := "2006-01-02T15:04:05Z"
 		t, err := time.Parse(layout, akInfo.Expiration)
 		if err != nil {
-			log.Errorf("Parse expiration error: %s", err.Error())
+			klog.Errorf("Parse expiration error: %s", err.Error())
 		}
 		if t.Before(time.Now()) {
-			log.Errorf("invalid token which is expired, expiration as: %s", akInfo.Expiration)
+			klog.Errorf("invalid token which is expired, expiration as: %s", akInfo.Expiration)
 		}
 		AccessKeyID = string(ak)
 		AccessKeySecret = string(sk)
@@ -249,12 +229,12 @@ func PKCS5UnPadding(origData []byte) []byte {
 func Decrypt(s string, keyring []byte) ([]byte, error) {
 	cdata, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		log.Errorf("failed to decode base64 string, err: %v", err)
+		klog.Errorf("failed to decode base64 string, err: %v", err)
 		return nil, err
 	}
 	block, err := aes.NewCipher(keyring)
 	if err != nil {
-		log.Errorf("failed to new cipher, err: %v", err)
+		klog.Errorf("failed to new cipher, err: %v", err)
 		return nil, err
 	}
 	blockSize := block.BlockSize()

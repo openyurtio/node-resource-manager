@@ -25,7 +25,7 @@ import (
 
 	"github.com/openyurtio/node-resource-manager/pkg/manager"
 	"github.com/openyurtio/node-resource-manager/pkg/signals"
-	log "github.com/sirupsen/logrus"
+	klog "k8s.io/klog/v2"
 )
 
 const (
@@ -48,7 +48,6 @@ var (
 	nodeID         = flag.String("nodeid", "", "node id")
 	cmName         = flag.String("cm-name", "node-resource-manager", "used configmap name")
 	cmNameSpace    = flag.String("cm-namespace", "kube-system", "used configmap namespace")
-	logLevel       = flag.String("log-level", "Info", "Set Log Level")
 	updateInterval = flag.Int("update-interval", 30, "Node Storage update internal time(s)")
 	masterURL      = flag.String("master", "", "The address of the Kubernetes API server (https://hostname:port, overrides any value in kubeconfig)")
 	kubeconfig     = flag.String("kubeconfig", "", "Path to kubeconfig file with authorization and master location information")
@@ -60,7 +59,7 @@ func main() {
 
 	// set log config
 	setLogAttribute("unified-resource-manager")
-	log.Infof("Unified Resource Manager, Version: %s, Build Time: %s", _VERSION_, _BUILDTIME_)
+	klog.Infof("Unified Resource Manager, BuildBranch: %s Version: %s, Build Time: %s", _BRANCH_, _VERSION_, _BUILDTIME_)
 
 	// new signal handler
 	stopCh := signals.SetupSignalHandler()
@@ -108,16 +107,8 @@ func setLogAttribute(driver string) {
 	}
 	if logType == "both" {
 		mw := io.MultiWriter(os.Stdout, f)
-		log.SetOutput(mw)
+		klog.SetOutput(mw)
 	} else {
-		log.SetOutput(f)
+		klog.SetOutput(f)
 	}
-
-	logLevelLow := strings.ToLower(*logLevel)
-	if logLevelLow == "debug" {
-		log.SetLevel(log.DebugLevel)
-	} else if logLevelLow == "warning" {
-		log.SetLevel(log.WarnLevel)
-	}
-	log.Infof("Set Log level to %s...", logLevelLow)
 }

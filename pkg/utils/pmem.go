@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/openyurtio/node-resource-manager/pkg/model"
-	log "github.com/sirupsen/logrus"
+	klog "k8s.io/klog/v2"
 )
 
 // Pmemer ...
@@ -79,10 +79,10 @@ func (np *NodePmemer) CreateNamespace(region, pmemType string) error {
 	}
 	_, err := Run(createCmd)
 	if err != nil {
-		log.Errorf("Create NameSpace for region %s error: %v", region, err)
+		klog.Errorf("Create NameSpace for region %s error: %v", region, err)
 		return err
 	}
-	log.Infof("Create NameSpace for region %s successful", region)
+	klog.Infof("Create NameSpace for region %s successful", region)
 	return nil
 }
 
@@ -91,13 +91,13 @@ func (np *NodePmemer) CheckNamespaceUsed(devicePath string) bool {
 	pvCheckCmd := fmt.Sprintf("%s pvs %s 2>&1 | grep -v \"Failed to \" | grep /dev | awk '{print $2}' | wc -l", NsenterCmd, devicePath)
 	out, err := Run(pvCheckCmd)
 	if err == nil && strings.TrimSpace(out) != "0" {
-		log.Infof("CheckNamespaceUsed: NameSpace %s used for pv", devicePath)
+		klog.Infof("CheckNamespaceUsed: NameSpace %s used for pv", devicePath)
 		return true
 	}
 
 	out, err = checkFSType(devicePath)
 	if err == nil && strings.TrimSpace(out) != "" {
-		log.Infof("CheckNamespaceUsed: NameSpace %s format as %s", devicePath, out)
+		klog.Infof("CheckNamespaceUsed: NameSpace %s format as %s", devicePath, out)
 		return true
 	}
 	return false
@@ -111,7 +111,7 @@ func (np *NodePmemer) GetPmemNamespaceDeivcePath(region, mode string) (devicePat
 	}
 	namespace := regions.Regions[0].Namespaces[0]
 	if namespace.Mode != mode {
-		log.Errorf("GetPmemNamespaceDeivcePath namespace mode %s wrong with: %s", namespace.Mode, mode)
+		klog.Errorf("GetPmemNamespaceDeivcePath namespace mode %s wrong with: %s", namespace.Mode, mode)
 		return "", "", errors.New("GetPmemNamespaceDeivcePath pmem namespace wrong mode" + namespace.Mode)
 	}
 	if mode == "fsdax" {
@@ -127,18 +127,22 @@ func (np *NodePmemer) getRegionNamespaceInfo(region string) (*model.PmemRegions,
 
 	out, err := Run(listCmd)
 	if err != nil {
-		log.Errorf("List NameSpace for region %s error: %v", region, err)
+		klog.Errorf("List NameSpace for region %s error: %v", region, err)
 		return nil, err
 	}
 	regions := &model.PmemRegions{}
 	err = json.Unmarshal(([]byte)(out), regions)
+	if err != nil {
+		klog.Errorf("getRegionNamespaceInfo:: unmarshal regions err: %v", err)
+		return nil, err
+	}
 	if len(regions.Regions) == 0 {
-		log.Errorf("list Namespace for region %s get 0 region, out: %s", region, out)
+		klog.Errorf("list Namespace for region %s get 0 region, out: %s", region, out)
 		return nil, errors.New("list Namespace get 0 region by " + region)
 	}
 
 	if len(regions.Regions[0].Namespaces) != 1 {
-		log.Errorf("list Namespace for region %s get 0 or multi namespaces", region)
+		klog.Errorf("list Namespace for region %s get 0 or multi namespaces", region)
 		return nil, errors.New("list Namespace for region get 0 or multi namespaces" + region)
 	}
 	return regions, nil
@@ -156,7 +160,7 @@ func (np *NodePmemer) CheckKMEMCreated(chardev string) (bool, error) {
 	listCmd := fmt.Sprintf("%s daxctl list", NsenterCmd)
 	out, err := Run(listCmd)
 	if err != nil {
-		log.Errorf("CheckKMEMCreated:: List daxctl error: %v", err)
+		klog.Errorf("CheckKMEMCreated:: List daxctl error: %v", err)
 		return false, err
 	}
 	memList := []*model.DaxctrlMem{}

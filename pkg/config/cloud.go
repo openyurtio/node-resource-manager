@@ -22,27 +22,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/openyurtio/node-resource-manager/pkg/utils"
-	log "github.com/sirupsen/logrus"
-)
 
-func newEcsClient(accessKeyID, accessKeySecret, accessToken string) (ecsClient *ecs.Client) {
-	var err error
-	regionID, _ := utils.GetMetaData(RegionIDTag)
-	if accessToken == "" {
-		ecsClient, err = ecs.NewClientWithAccessKey(regionID, accessKeyID, accessKeySecret)
-		if err != nil {
-			return nil
-		}
-	} else {
-		ecsClient, err = ecs.NewClientWithStsToken(regionID, accessKeyID, accessKeySecret, accessToken)
-		if err != nil {
-			return nil
-		}
-	}
-	return
-}
+	klog "k8s.io/klog/v2"
+)
 
 // GetDefaultAK read default ak from local file or from STS
 func GetDefaultAK() (string, string, string) {
@@ -84,20 +67,20 @@ func GetSTSAK() (string, string, string) {
 	subpath := "ram/security-credentials/"
 	roleName, err := utils.GetMetaData(subpath)
 	if err != nil {
-		log.Errorf("GetSTSToken: request roleName with error: %s", err.Error())
+		klog.Errorf("GetSTSToken: request roleName with error: %s", err.Error())
 		return "", "", ""
 	}
 
 	fullPath := filepath.Join(subpath, roleName)
 	roleInfo, err := utils.GetMetaData(fullPath)
 	if err != nil {
-		log.Errorf("GetSTSToken: request roleInfo with error: %s", err.Error())
+		klog.Errorf("GetSTSToken: request roleInfo with error: %s", err.Error())
 		return "", "", ""
 	}
 
 	err = json.Unmarshal([]byte(roleInfo), &roleAuth)
 	if err != nil {
-		log.Errorf("GetSTSToken: unmarshal roleInfo: %s, with error: %s", roleInfo, err.Error())
+		klog.Errorf("GetSTSToken: unmarshal roleInfo: %s, with error: %s", roleInfo, err.Error())
 		return "", "", ""
 	}
 	return roleAuth.AccessKeyID, roleAuth.AccessKeySecret, roleAuth.SecurityToken

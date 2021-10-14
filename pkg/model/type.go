@@ -32,8 +32,6 @@ const (
 	separator = "<:SEP:>"
 )
 
-var volumeTypeKeys = []byte("mMoOrRsSpviIlcVtTe")
-
 // types
 const (
 	VolumeTypeMirrored                  VolumeType = 'm'
@@ -59,8 +57,6 @@ const (
 // VolumePermissions is volume permissions
 type VolumePermissions rune
 
-var volumePermissonsKeys = []byte("wrR")
-
 // permissions
 const (
 	VolumePermissionsWriteable          VolumePermissions = 'w'
@@ -70,8 +66,6 @@ const (
 
 // VolumeAllocation is volume allocation policy
 type VolumeAllocation rune
-
-var volumeAllocationKeys = []byte("acilnACILN")
 
 // allocations
 const (
@@ -103,8 +97,6 @@ func (t VolumeFixedMinor) toProto() bool {
 // VolumeState is volume state
 type VolumeState rune
 
-var volumeStateKeys = []byte("asISmMdi")
-
 // states
 const (
 	VolumeStateActive                               VolumeState = 'a'
@@ -128,8 +120,6 @@ const (
 
 // VolumeTargetType is volume taget type
 type VolumeTargetType rune
-
-var volumeTargetTypeKeys = []byte("mrstuv")
 
 // target type
 const (

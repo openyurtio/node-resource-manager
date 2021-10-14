@@ -24,9 +24,11 @@ import (
 	"os/exec"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	klog "k8s.io/klog/v2"
 	utilexec "k8s.io/utils/exec"
 	k8smount "k8s.io/utils/mount"
+
+	CusErr "github.com/openyurtio/node-resource-manager/pkg/err"
 )
 
 const (
@@ -35,17 +37,6 @@ const (
 	// fsckErrorsUncorrected tag
 	fsckErrorsUncorrected = 4
 )
-
-type findmntResponse struct {
-	FileSystems []fileSystem `json:"filesystems"`
-}
-
-type fileSystem struct {
-	Target      string `json:"target"`
-	Propagation string `json:"propagation"`
-	FsType      string `json:"fstype"`
-	Options     string `json:"options"`
-}
 
 // Mounter is responsible for formatting and mounting volumes
 type Mounter interface {
@@ -62,6 +53,8 @@ type Mounter interface {
 	IsMounted(target string) (bool, error)
 
 	SafePathRemove(target string) error
+
+	FileExists(file string) bool
 }
 
 // TODO(arslan): this is Linux only for now. Refactor this into a package with
@@ -83,6 +76,18 @@ func NewMounter() Mounter {
 	}
 }
 
+// FileExists ...
+func (m *NodeMounter) FileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
 // EnsureFolder ...
 func (m *NodeMounter) EnsureFolder(target string) error {
 	mkdirCmd := "mkdir"
@@ -96,7 +101,7 @@ func (m *NodeMounter) EnsureFolder(target string) error {
 
 	mkdirCmd = NsenterCmd + mkdirCmd
 	mkdirCmd += fmt.Sprintf(" -p %s", target)
-	log.Infof("mkdir for folder, the command is %s", mkdirCmd)
+	klog.Infof("mkdir for folder, the command is %s", mkdirCmd)
 	output, err := Run(mkdirCmd)
 	if err != nil {
 		return fmt.Errorf("EnsureFolder:: mkdir for folder output: %s error: %v", output, err)
@@ -118,9 +123,9 @@ func (m *NodeMounter) FormatAndMount(source, target, fstype string, mkfsOptions 
 			ee, isExitError := err.(utilexec.ExitError)
 			switch {
 			case err == utilexec.ErrExecutableNotFound:
-				log.Warningf("'fsck' not found on system; continuing mount without running 'fsck'.")
+				klog.Warningf("'fsck' not found on system; continuing mount without running 'fsck'.")
 			case isExitError && ee.ExitStatus() == fsckErrorsCorrected:
-				log.Infof("Device %s has errors which were corrected by fsck.", source)
+				klog.Infof("Device %s has errors which were corrected by fsck.", source)
 			case isExitError && ee.ExitStatus() == fsckErrorsUncorrected:
 				return fmt.Errorf("'fsck' found errors on device %s but could not correct them: %s", source, string(out))
 			case isExitError && ee.ExitStatus() > fsckErrorsUncorrected:
@@ -130,7 +135,7 @@ func (m *NodeMounter) FormatAndMount(source, target, fstype string, mkfsOptions 
 
 	// Try to mount the disk
 	cmd := fmt.Sprintf("%smount -o %s %s %s", NsenterCmd, mountOptions, source, target)
-	log.Infof("FormatAndMount:: cmd: %s", cmd)
+	klog.Infof("FormatAndMount:: cmd: %s", cmd)
 	output, mountErr := Run(cmd)
 	if mountErr != nil {
 		// Mount failed. This indicates either that the disk is unformatted or
@@ -168,18 +173,18 @@ func (m *NodeMounter) FormatAndMount(source, target, fstype string, mkfsOptions 
 					args = append(args, source)
 				}
 			}
-			log.Infof("Disk %q appears to be unformatted, attempting to format as type: %q with options: %v", source, fstype, args)
+			klog.Infof("Disk %q appears to be unformatted, attempting to format as type: %q with options: %v", source, fstype, args)
 
 			mkfsCmd := fmt.Sprintf("%s mkfs.%s %s", NsenterCmd, fstype, strings.Join(args, " "))
-			log.Infof("FormatAndMount:: mkfscmd: %s", mkfsCmd)
+			klog.Infof("FormatAndMount:: mkfscmd: %s", mkfsCmd)
 			_, err = Run(mkfsCmd)
 			if err == nil {
 				// the disk has been formatted successfully try to mount it again.
 				output, mountErr := Run(cmd)
-				log.Infof("FormatAndMount:: cmd output %s", output)
+				klog.Infof("FormatAndMount:: cmd output %s", output)
 				return mountErr
 			}
-			log.Errorf("format of disk %q failed: type:(%q) target:(%q) options:(%q) output: (%s) error:(%v)", source, fstype, target, mkfsOptions, output, err)
+			klog.Errorf("format of disk %q failed: type:(%q) target:(%q) options:(%q) output: (%s) error:(%v)", source, fstype, target, mkfsOptions, output, err)
 			return err
 		}
 		// Disk is already formatted and failed to mount
@@ -188,7 +193,11 @@ func (m *NodeMounter) FormatAndMount(source, target, fstype string, mkfsOptions 
 			return mountErr
 		}
 		// Block device is formatted with unexpected filesystem, let the user know
-		return fmt.Errorf("failed to mount the volume as %q, it already contains %s. Mount error: %v", fstype, existingFormat, mountErr)
+		return &CusErr.ExistsFormatErr{
+			FsType:         fstype,
+			ExistingFormat: existingFormat,
+			MountErr:       mountErr,
+		}
 	}
 
 	return mountErr
