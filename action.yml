@@ -1,0 +1,2 @@
+- name: Trivy GitHub Issues
+  uses: knqyf263/trivy-issue-action@v0.0.1
