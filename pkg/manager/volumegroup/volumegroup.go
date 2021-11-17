@@ -315,7 +315,7 @@ func (vrm *ResourceManager) AnalyseConfigMap() error {
 				// not support yet
 				continue
 			case VgTypePmem:
-				vgRegionMap[devConfig.Name] = getExistDevices(devConfig.Topology.Regions)
+				vgRegionMap[devConfig.Name] = devConfig.Topology.Regions
 			default:
 				klog.Errorf("AnalyseConfigMap:: Get unsupported volumegroup type: %s", devConfig.Topology.Type)
 				continue
