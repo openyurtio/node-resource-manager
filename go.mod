@@ -1,6 +1,6 @@
 module github.com/openyurtio/node-resource-manager
 
-go 1.15
+go 1.16
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.895

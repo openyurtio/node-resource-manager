@@ -136,15 +136,13 @@ func TestAnalyseConfigMap(t *testing.T) {
 	gomock.InOrder(
 		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdb")).Return(true),
 		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdc")).Return(false),
-		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdb")).Return(false),
-		mockMounter.EXPECT().FileExists(gomock.Eq("/dev/vdc")).Return(true),
 	)
 
 	assert.Nil(t, resourceManager.AnalyseConfigMap())
 	assert.Equal(t, 1, len(resourceManager.volumeGroupDeviceMap))
 	assert.Equal(t, 1, len(resourceManager.volumeGroupRegionMap))
 	assert.Equal(t, 1, len(resourceManager.volumeGroupDeviceMap["foo"].PhysicalVolumes))
-	assert.Equal(t, "/dev/vdc", resourceManager.volumeGroupRegionMap["bar1"][0])
+	assert.Equal(t, "/dev/vdb", resourceManager.volumeGroupRegionMap["bar1"][0])
 }
 
 // EnsureFolder ...
