@@ -10,8 +10,8 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.14'
-  GOLANGCI_VERSION: 'v1.31'
+  GO_VERSION: '1.18'
+  GOLANGCI_VERSION: 'v1.48.0'
   DOCKER_BUILDX_VERSION: 'v0.4.2'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
@@ -37,7 +37,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: ${{ env.GOLANGCI_VERSION }}
-          args: -v
+          args: --disable-all  -E deadcode -E gofmt -E goimports -E ineffassign -E misspell -E vet --timeout=15m -v
 
   markdownlint-misspell-shellcheck:
     runs-on: ubuntu-18.04
@@ -89,7 +89,7 @@ jobs:
           name: codecov-umbrella
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
-          files: ./cover.out,./yurttunnel-cover.out
+          files: ./cover.out
           fail_ci_if_error: true
           verbose: true
 

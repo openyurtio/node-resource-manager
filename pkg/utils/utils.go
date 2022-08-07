@@ -50,7 +50,7 @@ const (
 // ErrParse ...
 var ErrParse = errors.New("Cannot parse output of blkid")
 
-//GetMetaData get metadata from ecs meta-server
+// GetMetaData get metadata from ecs meta-server
 func GetMetaData(resource string) (string, error) {
 	resp, err := http.Get(MetadataURL + resource)
 	if err != nil {
