@@ -10,8 +10,8 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.14'
-  GOLANGCI_VERSION: 'v1.31'
+  GO_VERSION: '1.18'
+  GOLANGCI_VERSION: 'v1.48.0'
   DOCKER_BUILDX_VERSION: 'v0.4.2'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
@@ -37,7 +37,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: ${{ env.GOLANGCI_VERSION }}
-          args: --disable-all  -E deadcode -E gofmt -E goimports -E ineffassign -E misspell -E vet --timeout=15m
+          args: --disable-all  -E deadcode -E gofmt -E goimports -E ineffassign -E misspell -E vet --timeout=15m -v
 
   markdownlint-misspell-shellcheck:
     runs-on: ubuntu-18.04
@@ -63,6 +63,35 @@ jobs:
 #            fi
 #          done
 #          bash -c "exit $code";
+  unit-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Fetch History
+        run: git fetch --prune --unshallow
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Cache Go Dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+      - name: Run Unit Tests
+        run: make test
+      - name: Publish Unit Test Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unittests
+          files: ./cover.out
+          fail_ci_if_error: true
+          verbose: true
 
   build-images:
     runs-on: ubuntu-18.04

@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: build
+.PHONY: build test
+
 build:
 # options:
 # 	ARCH=amd64
 #	VERSION=v1.0
 	bash ./build/build.sh $(OPTS)
+
+# Run test
+test:
+	go test -v -short ./pkg/... -coverprofile cover.out
