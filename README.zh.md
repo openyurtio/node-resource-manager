@@ -1,5 +1,13 @@
 # openyurtio/node-resource-manager
 
+<div align="center">
+
+[![Version](https://img.shields.io/badge/NodeResourceManager-v0.1.0-orange)]()
+[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/node-resource-manager)](https://goreportcard.com/report/github.com/openyurtio/node-reource-manager)
+[![codecov](https://codecov.io/gh/openyurtio/node-resource-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/openyurtio/node-resource-manager)
+</div>
+
 [English](./README.md) | 简体中文
 
 node-resource-manager 是用于管理 OpenYurt 集群本地资源的组件，用户可以通过修改集群内 ConfigMap 的定义来动态配置集群内宿主机上的本地资源。
