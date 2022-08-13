@@ -4,3 +4,9 @@ coverage:
       default:
         target: auto
         threshold: 2%
+ignore:
+  - "**/*_mock.go"
+  - "**/*_test.go"
+  - "**/global.go"
+  - "go.mod"
+  - "go.sum"
