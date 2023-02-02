@@ -40,15 +40,7 @@ func GetDefaultAK() (string, string, string) {
 }
 
 func GetLocalAK() (string, string) {
-	var accessKeyID, accessSecret string
-	// first check if the environment setting
-	accessKeyID = os.Getenv("ACCESS_KEY_ID")
-	accessSecret = os.Getenv("ACCESS_KEY_SECRET")
-	if accessKeyID != "" && accessSecret != "" {
-		return accessKeyID, accessSecret
-	}
-
-	return accessKeyID, accessSecret
+	return os.Getenv("ACCESS_KEY_ID"), os.Getenv("ACCESS_KEY_SECRET")
 }
 
 // RoleAuth define STS Token Response

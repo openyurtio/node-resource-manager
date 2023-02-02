@@ -21,7 +21,7 @@ set -x
 NRM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 NRM_BUILD_DIR=${NRM_ROOT}/build
 NRM_OUTPUT_DIR=${NRM_BUILD_DIR}/_output
-NRM_BUILD_IMAGE="golang:1.13.3-alpine"
+NRM_BUILD_IMAGE="golang:1.17"
 
 GIT_VERSION="v1.0"
 GIT_VERSION=(${VERSION:-${GIT_VERSION}})
@@ -100,6 +100,7 @@ LABEL description="OpenYurt Node Resource Manager"
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk update && apk add --no-cache ca-certificates file util-linux lvm2 xfsprogs e2fsprogs blkid
+RUN ls -l
 COPY entrypoint.sh /entrypoint.sh
 COPY _output/nrm.${arch} /bin/nrm
 RUN chmod +x /bin/nrm && chmod +x /entrypoint.sh
